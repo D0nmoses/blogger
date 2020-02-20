@@ -4,11 +4,11 @@ from app.models import User, Post, Comment
 from flask_script import Manager, Shell
 from flask_migrate import Migrate, MigrateCommand
 
-app = create_app(os.getenv('FLASK_CONFIG') or 'default')
+app = create_app('development')
 manager = Manager(app)
 migrate = Migrate(app, db)
 
-@manager.command()
+@manager.command
 def make_shell_context():
     return dict(app=app, db=db, User=User,
                  Post=Post, Comment=Comment)
