@@ -6,7 +6,6 @@ from .forms import EditProfileForm, EditProfileAdminForm, PostForm, \
     CommentForm
 from .. import db
 from ..models import User, Post, Comment
-from ..decorators import admin_required, permission_required
 
 @main.after_app_request
 def after_request(response):
@@ -22,8 +21,7 @@ def after_request(response):
 @main.route('/', methods=['GET', 'POST'])
 def index():
     form = PostForm()
-    if current_user.can(Permission.WRITE_ARTICLES) and \
-            form.validate_on_submit():
+    if form.validate_on_submit():
         post = Post(body=form.body.data, author=current_user._get_current_object())
         db.session.add(post)
         return redirect(url_for('.index'))
@@ -70,7 +68,6 @@ def edit_profile():
 
 @main.route('/edit-profile/<int:id>', methods=['GET', 'POST'])
 @login_required
-@admin_required
 def edit_profile_admin(id):
     user = User.query.get_or_404(id)
     form = EditProfileAdminForm(user=user)
@@ -78,7 +75,6 @@ def edit_profile_admin(id):
         user.email = form.email.data
         user.username = form.username.data
         user.confirmed = form.confirmed.data
-        user.role = Role.query.get(form.role.data)
         user.name = form.name.data
         user.location = form.location.data
         user.about_me = form.about_me.data
