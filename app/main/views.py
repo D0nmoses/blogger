@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from .. import db
 import markdown2
 from ..email import send_email
+from ..requests import get_quotes
 
 
 # Views
@@ -18,8 +19,9 @@ def index():
 
     title = 'Home'
     posts = Post.get_posts()
+    quote = get_quotes()
 
-    return render_template('index.html', title=title, posts=posts)
+    return render_template('index.html', title=title, posts=posts, quote=quote)
 
 
 @main.route('/post/<int:id>')
@@ -29,12 +31,13 @@ def post(id):
     '''
     post = Post.query.get(id)
     title = f'Post {post.id}'
+    user = current_user
 
     comments = Comment.get_comments(id)
 
     format_post = markdown2.markdown(post.post_content, extras=["code-friendly", "fenced-code-blocks"])
 
-    return render_template('post.html', title=title, post=post, comments=comments, format_post=format_post)
+    return render_template('post.html', title=title, post=post, comments=comments, format_post=format_post, user = user)
 
 
 @main.route('/post/comment/new/<int:id>', methods=['GET', 'POST'])
@@ -52,7 +55,7 @@ def new_comment(id):
 
     if form.validate_on_submit():
         comment_content = form.comment_content.data
-        new_comment = Comment(comment_content=comment_content, post=post, user=current_user)
+        new_comment = Comment(comment_content=comment_content, post=post)
         new_comment.save_comment()
 
         return redirect(url_for('.post', id=post.id))
@@ -90,13 +93,11 @@ def new_post():
         if form.validate_on_submit():
             post_title = form.post_title.data
             post_content = form.post_content.data
-            new_post = Post(post_title=post_title, post_content=post_content, user=current_user)
+            new_post = Post(post_title=post_title, post_content=post_content)
             new_post.save_post()
-            subscribers = User.get_subscribers()
-            subscribers = ",".join(subscribers)
-            send_email("New post in the C blog", "email/update_user", subscribers)
 
-            return redirect(url_for('.writer'))
+
+            return redirect(url_for('main.index'))
 
         title = 'Create Post'
 

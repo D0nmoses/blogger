@@ -133,3 +133,12 @@ class Comment(db.Model):
         '''
         comment = Comment.query.filter_by(id=comment_id).delete()
         db.session.commit()
+
+class Quotes():
+    '''
+    Class that defines quotes received from API
+    '''
+    def __init__(self,id,author,quote):
+        self.id = id
+        self.author = author
+        self.quote = quote

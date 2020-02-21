@@ -15,7 +15,20 @@
 
     <div class="container">
 
+        <div class="card" id="quote">
+            <div class="card-header">
+                <h3>Random quote</h3>
+            </div>
+            <div class="card-body">
+                {{quote.quote}}
+            </div>
+            <div class="card-footer">
+                {{quote.author}}
+            </div>
+        </div>
+
         <h3 class="index-header">All Posts</h3>
+        <h3 class="post-link"><a href="{{url_for('main.new_post')}}">New Post</a></h3>
 
         <hr>
 
