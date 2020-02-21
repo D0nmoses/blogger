@@ -1,131 +1,197 @@
-from flask import render_template, redirect, url_for, abort, flash, request, current_app, make_response
-from flask_login import login_required, current_user
-from flask_sqlalchemy import get_debug_queries
+from flask import render_template, request, redirect, url_for, abort, flash
 from . import main
-from .forms import EditProfileForm, EditProfileAdminForm, PostForm, \
-    CommentForm
+from ..models import User, Role, Post, Comment
+from .forms import CommentForm, PostForm
+from flask_login import login_required, current_user
+from datetime import datetime, timezone
 from .. import db
-from ..models import User, Post, Comment
-
-@main.after_app_request
-def after_request(response):
-    for query in get_debug_queries():
-        if query.duration >= current_app.config['FLASKY_SLOW_DB_QUERY_TIME']:
-            current_app.logger.warning(
-                'Slow query: %s\nParameters: %s\nDuration: %fs\nContext: %s\n'
-                % (query.statement, query.parameters, query.duration,
-                query.context))
-    return response
+import markdown2
+from ..email import send_email
 
 
-@main.route('/', methods=['GET', 'POST'])
+# Views
+@main.route('/')
 def index():
-    form = PostForm()
-    if form.validate_on_submit():
-        post = Post(body=form.body.data, author=current_user._get_current_object())
-        db.session.add(post)
-        return redirect(url_for('.index'))
-    page = request.args.get('page', 1, type=int)
-    show_followed = False
-    if current_user.is_authenticated:
-        show_followed = bool(request.cookies.get('show_followed', ''))
-    if show_followed:
-        query = current_user.followed_posts
-    else:
-        query = Post.query.all()
-    pagination = query.order_by(Post.timestamp.desc()).paginate(
-        page, per_page=current_app.config['FLASKY_POSTS_PER_PAGE'],
-        error_out=False)
-    posts = pagination.items
-    return render_template('index.html', form=form, posts=posts,
-                            show_followed=show_followed, pagination=pagination)
+    '''
+    View root page function that returns the index page and its data
+    '''
 
-@main.route('/user/<username>')
-def user(username):
-    user = User.query.filter_by(username=username).first_or_404()
-    page = request.args.get('page', 1, type=int)
-    pagination = user.posts.order_by(Post.timestamp.desc()).paginate(
-        page, per_page=current_app.config['FLASKY_POSTS_PER_PAGE'],
-        error_out=False)
-    posts = pagination.items
-    return render_template('user.html', user=user, posts=posts, pagination=pagination)
+    title = 'Home'
+    posts = Post.get_posts()
 
-@main.route('/edit-profile', methods=['GET', 'POST'])
-@login_required
-def edit_profile():
-    form = EditProfileForm()
-    if form.validate_on_submit():
-        current_user.name = form.name.data
-        current_user.location = form.location.data
-        current_user.about_me = form.about_me.data
-        db.session.add(current_user)
-        flash('Your profile has been updated.')
-        return redirect(url_for('.user', username=current_user.username))
-    form.name.data = current_user.name
-    form.location.data = current_user.location
-    form.about_me.data = current_user.about_me
-    return render_template('edit_profile.html', form=form)
+    return render_template('index.html', title=title, posts=posts)
 
-@main.route('/edit-profile/<int:id>', methods=['GET', 'POST'])
-@login_required
-def edit_profile_admin(id):
-    user = User.query.get_or_404(id)
-    form = EditProfileAdminForm(user=user)
-    if form.validate_on_submit():
-        user.email = form.email.data
-        user.username = form.username.data
-        user.confirmed = form.confirmed.data
-        user.name = form.name.data
-        user.location = form.location.data
-        user.about_me = form.about_me.data
-        db.session.add(user)
-        flash('Your profile has been updated.')
-        return redirect(url_for('.user', username=current_user.username))
-    form.email.data = user.email
-    form.username.data = user.username
-    form.confirmed.data = user.confirmed
-    form.role.data = user.role_id
-    form.name.data = user.name
-    form.location.data = user.location
-    form.about_me.data = user.about_me
-    return render_template('edit_profile.html', form=form, user=user)
 
-@main.route('/post/<int:id>', methods=['GET', 'POST'])
+@main.route('/post/<int:id>')
 def post(id):
-    post = Post.query.get_or_404(id)
-    form = CommentForm()
-    if form.validate_on_submit():
-        comment = Comment(body=form.body.data,
-                          post=post,
-                          author=current_user._get_current_object())
-        db.session.add(comment)
-        flash('Your comment has been published.')
-        return redirect(url_for('.post', id=post.id, page=-1))
-    page = request.args.get('page', 1, type=int)
-    if page == -1:
-        page = (post.comments.count() - 1) // \
-        current_app.config['FLASKY_COMMENTS_PER_PAGE'] + 1
-    pagination = post.comments.order_by(Comment.timestamp.asc()).paginate(
-        page, per_page=current_app.config['FLASKY_COMMENTS_PER_PAGE'],
-        error_out=False)
-    comments = pagination.items
-    return render_template('post.html', posts=[post], form=form,
-                            comments=comments, pagination=pagination)
+    '''
+    View post page function that returns a page with a post and its comments
+    '''
+    post = Post.query.get(id)
+    title = f'Post {post.id}'
 
-@main.route('/edit/<int:id>', methods=['GET', 'POST'])
+    comments = Comment.get_comments(id)
+
+    format_post = markdown2.markdown(post.post_content, extras=["code-friendly", "fenced-code-blocks"])
+
+    return render_template('post.html', title=title, post=post, comments=comments, format_post=format_post)
+
+
+@main.route('/post/comment/new/<int:id>', methods=['GET', 'POST'])
 @login_required
-def edit(id):
-    post = Post.query.get_or_404(id)
-    if current_user != post.author:
-        abort(403)
-    form = PostForm()
+def new_comment(id):
+    '''
+    View new comment function that returns a page with a form to create a comment for the specified post
+    '''
+    post = Post.query.filter_by(id=id).first()
+
+    if post is None:
+        abort(404)
+
+    form = CommentForm()
+
     if form.validate_on_submit():
-        post.body = form.body.data
-        db.session.add(post)
-        flash('The post has been updated.')
+        comment_content = form.comment_content.data
+        new_comment = Comment(comment_content=comment_content, post=post, user=current_user)
+        new_comment.save_comment()
+
         return redirect(url_for('.post', id=post.id))
-    form.body.data = post.body
-    return render_template('edit_post.html', form=form)
+
+    title = 'New Comment'
+    return render_template('new_comment.html', title=title, comment_form=form)
+
+@main.route('/writer')
+@login_required
+def writer():
+    '''
+    View root page function that returns the writer page and its data
+    '''
+    if current_user.role.id == 1:
+
+        title = 'Writer'
+        posts = Post.get_posts()
+
+        return render_template('writer.html', title=title, posts=posts)
+
+    else:
+        abort(404)
 
 
+@main.route('/writer/post/new', methods=['GET', 'POST'])
+@login_required
+def new_post():
+    '''
+    View new post function that returns a page with a form to create a post
+    '''
+    if current_user.role.id == 1:
 
+        form = PostForm()
+
+        if form.validate_on_submit():
+            post_title = form.post_title.data
+            post_content = form.post_content.data
+            new_post = Post(post_title=post_title, post_content=post_content, user=current_user)
+            new_post.save_post()
+            subscribers = User.get_subscribers()
+            subscribers = ",".join(subscribers)
+            send_email("New post in the C blog", "email/update_user", subscribers)
+
+            return redirect(url_for('.writer'))
+
+        title = 'Create Post'
+
+        return render_template('new_post.html', title=title, post_form=form)
+
+    else:
+        abort(404)
+
+
+@main.route('/writer/post/<int:id>')
+@login_required
+def writer_post(id):
+    '''
+    View post page function that returns the writer page and its data
+    '''
+    if current_user.role.id == 1:
+
+        post = Post.query.get(id)
+        title = f'Post {post.id}'
+        comments = Comment.get_comments(id)
+
+        format_post = markdown2.markdown(post.post_content, extras=["code-friendly", "fenced-code-blocks"])
+
+        return render_template('writer_post.html', title=title, post=post, comments=comments, format_post=format_post)
+
+    else:
+        abort(404)
+
+
+@main.route('/writer/post/comment/delete/<int:id>')
+@login_required
+def delete_comment(id):
+    '''
+    View function that deletes a comment and redirect to writer view function
+    '''
+
+    if current_user.role.id == 1:
+
+        comment = Comment.query.get(id)
+        comment.delete_single_comment(id)
+
+        return redirect(url_for('.writer'))
+
+    else:
+        abort(404)
+
+
+@main.route('/writer/post/delete/<int:id>')
+@login_required
+def delete_post(id):
+    '''
+    View function that deletes a post and its comments and redirect to writer view function
+    '''
+
+    if current_user.role.id == 1:
+
+        post = Post.query.get(id)
+
+        post.delete_post(id)
+
+        return redirect(url_for('.writer'))
+
+
+    else:
+        abort(404)
+
+
+@main.route('/writer/post/update/<int:id>', methods=['GET', 'POST'])
+@login_required
+def update_post(id):
+    '''
+    View function that updates a post and redirect to the writer view function
+    '''
+
+    if current_user.role.id == 1:
+
+        current_post = Post.query.get(id)
+
+        form = PostForm(obj=current_post)
+
+        if form.validate_on_submit():
+            form.populate_obj(current_post)
+
+            comments = Comment.query.filter_by(post_id=id).all()
+            post = Post.query.filter_by(id=id).update({
+                'post_title': form.post_title.data,
+                'post_content': form.post_content.data
+            })
+            db.session.commit()
+
+            return redirect(url_for('.writer'))
+
+        title = 'Update Post'
+
+        return render_template('update_post.html', title=title, update_post_form=form)
+
+    else:
+        abort(404)
