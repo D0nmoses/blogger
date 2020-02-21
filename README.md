@@ -10,7 +10,7 @@ The writer functionality has failed to work.
 ## Technologies Used
 For development, the author used pycharm to develop using html, css and python3.6. Furthermore, flask dependencies were used
 ## Codebeat Badge
-
+[![codebeat badge](https://codebeat.co/badges/dbc87925-a639-41e9-81d3-de83da00430b)](https://codebeat.co/projects/github-com-d0nmoses-blogger-master)
 ## Support and contact details
 In case of any problems, please email me at githinjidon@gmail.com
 
