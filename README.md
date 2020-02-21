@@ -4,7 +4,7 @@
 ## Description
 On loading up the website, the user is provided with a list of blog posts previously posted. On login, a user can add new blog posts as well as comment on other user's posts.Without an existing user account, the user can register and then login afterwards.
 ## Setup/Installation Requirements
-Users may view a working demo here: 
+Users may view a working demo here: https://blogging-flask-app.herokuapp.com/
 ## Known Bugs
 The writer functionality has failed to work.
 ## Technologies Used
