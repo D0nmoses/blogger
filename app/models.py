@@ -95,11 +95,41 @@ class Post(db.Model):
         db.session.commit()
 
 class Comment(db.Model):
+    '''
+    Comment class to define the feedback from users
+    '''
     __tablename__ = 'comments'
-    id = db.Column(db.Integer, primary_key=True)
-    body = db.Column(db.Text)
-    body_html = db.Column(db.Text)
-    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-    disabled = db.Column(db.Boolean)
-    author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    post_id = db.Column(db.Integer, db.ForeignKey('posts.id'))
+    id = db.Column(db.Integer, primary_key = True)
+    comment_content = db.Column(db.String)
+    post_id = db.Column(db.Integer, db.ForeignKey("posts.id",ondelete='CASCADE') )
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id") )
+
+    def save_comment(self):
+        '''
+        Function that saves a new comment given as feedback to a post
+        '''
+        db.session.add(self)
+        db.session.commit()
+
+    @classmethod
+    def get_comments(cls,post_id):
+        '''
+        Function that queries the Comments Table in the database and returns only information with the specified post id
+        Args:
+            post_id : specific post_id
+        Returns:
+            comments : all the information for comments with the specific post id
+        '''
+        comments = Comment.query.filter_by(post_id=post_id).all()
+
+        return comments
+
+    @classmethod
+    def delete_single_comment(cls,comment_id):
+        '''
+        Function that deletes a specific single comment from the comments table and database
+        Args:
+            comment_id : specific comment id
+        '''
+        comment = Comment.query.filter_by(id=comment_id).delete()
+        db.session.commit()
