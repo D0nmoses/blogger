@@ -16,6 +16,7 @@ class Role(db.Model):
 @login_manager.user_loader
 def load_user(user_id):
     return User.get(user_id)
+
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -60,13 +61,34 @@ class User(UserMixin, db.Model):
         return True
 
 class Post(db.Model):
+    '''
+    Post class to define a blog post by a user with Writer role
+    '''
+
+    # Name of the table
     __tablename__ = 'posts'
-    id = db.Column(db.Integer, primary_key=True)
-    body = db.Column(db.Text)
-    body_html = db.Column(db.Text)
-    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-    author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    comments = db.relationship('Comment', backref='post', lazy='dynamic')
+
+    id = db.Column(db.Integer, primary_key = True)
+    post_title = db.Column(db.String)
+    post_content = db.Column(db.String)
+    post_date = db.Column(db.DateTime, default=datetime.now())
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    comments = db.relationship('Comment', backref='post', lazy='dynamic', cascade="all, delete-orphan")
+
+    def save_post(self):
+        db.session.add(self)
+        db.session.commit()
+
+    @classmethod
+    def get_posts(cls):
+        posts = Post.query.order_by(Post.id.desc()).all()
+        return posts
+
+    @classmethod
+    def delete_post(cls,post_id):
+        comments = Comment.query.filter_by(post_id=post_id).delete()
+        post = Post.query.filter_by(id=post_id).delete()
+        db.session.commit()
 
 class Comment(db.Model):
     __tablename__ = 'comments'
