@@ -6,16 +6,20 @@ from flask_login import UserMixin
 from . import db, login_manager
 
 class Role(db.Model):
+    '''
+    Role class to define a User's role in the database
+    '''
     __tablename__ = 'roles'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(64), unique=True)
-    default = db.Column(db.Boolean, default=False, index=True)
-    permissions = db.Column(db.Integer)
+    id = db.Column(db.Integer, primary_key = True)
+    name = db.Column(db.String)
     users = db.relationship('User', backref='role', lazy='dynamic')
+
+    def __repr__(self):
+        return f'User {self.name}'
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.get(user_id)
+    return User.query.get(user_id)
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
