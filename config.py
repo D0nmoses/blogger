@@ -14,7 +14,7 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URL')
+    SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://don:D0nm0ses@localhost/blogging'
 
 
 class TestingConfig(Config):
@@ -24,7 +24,7 @@ class TestingConfig(Config):
 
 
 class ProductionConfig(Config):
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://don:D0nm0ses@localhost/blogging'
 
 
 class HerokuConfig(ProductionConfig):
