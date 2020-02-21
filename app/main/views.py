@@ -86,25 +86,24 @@ def new_post():
     '''
     View new post function that returns a page with a form to create a post
     '''
-    if current_user.role.id == 1:
-
-        form = PostForm()
-
-        if form.validate_on_submit():
-            post_title = form.post_title.data
-            post_content = form.post_content.data
-            new_post = Post(post_title=post_title, post_content=post_content)
-            new_post.save_post()
 
 
-            return redirect(url_for('main.index'))
+    form = PostForm()
 
-        title = 'Create Post'
+    if form.validate_on_submit():
+        post_title = form.post_title.data
+        post_content = form.post_content.data
+        new_post = Post(post_title=post_title, post_content=post_content)
+        new_post.save_post()
 
-        return render_template('new_post.html', title=title, post_form=form)
 
-    else:
-        abort(404)
+        return redirect(url_for('main.index'))
+
+    title = 'Create Post'
+
+    return render_template('new_post.html', title=title, post_form=form)
+
+
 
 
 @main.route('/writer/post/<int:id>')
